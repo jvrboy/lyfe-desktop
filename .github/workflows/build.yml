@@ -1,0 +1,76 @@
+name: Build LYFE Windows EXE
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller PyQt6 pyqtgraph numpy pandas requests websocket-client
+    
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --name=LYFE `
+          --onefile `
+          --windowed `
+          --clean `
+          --noconfirm `
+          --hidden-import=PyQt6.sip `
+          --hidden-import=PyQt6.QtCore `
+          --hidden-import=PyQt6.QtGui `
+          --hidden-import=PyQt6.QtWidgets `
+          --hidden-import=sqlite3 `
+          --hidden-import=websocket `
+          --hidden-import=requests `
+          --hidden-import=numpy `
+          --hidden-import=pandas `
+          --hidden-import=views.dashboard `
+          --hidden-import=views.signals `
+          --hidden-import=views.trading `
+          --hidden-import=views.backtest `
+          --hidden-import=views.news `
+          --hidden-import=views.llm_view `
+          --hidden-import=views.tools_view `
+          --hidden-import=views.settings_view `
+          --hidden-import=views.base_view `
+          --add-data=views;views `
+          --exclude-module=matplotlib `
+          --exclude-module=tkinter `
+          --exclude-module=PIL `
+          main.py
+    
+    - name: Upload EXE artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LYFE-Windows-EXE
+        path: dist/LYFE.exe
+        if-no-files-found: error
+    
+    - name: Create Release
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: LYFE v3.0.0 Build ${{ github.run_number }}
+        files: dist/LYFE.exe
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
